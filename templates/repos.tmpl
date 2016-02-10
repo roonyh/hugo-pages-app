@@ -1,0 +1,55 @@
+<html>
+<body>
+  <h1>
+    Hugo Pages
+  </h1>
+  <table>
+  {{range .repos}}
+  <tr>
+    <td>
+      {{.FullName}}
+    </td>
+    <td>
+      <button class="repo-btn" data-repofullname={{.FullName}} type="button">Add</button>
+    </td>
+  </tr>
+  {{else}}
+  <div>
+    You don't have any Github repos. Create one now.
+  </div>
+  {{end}}
+  </table>
+<body>
+<script>
+  var repoButtons = document.querySelectorAll(".repo-btn")
+  for (i = 0; i < repoButtons.length; ++i) {
+    var repo = repoButtons[i].dataset.repofullname
+    repoButtons[i].onclick = createFunc(repo, repoButtons[i])
+  }
+  function createFunc(repo, btn) {
+    return function() {
+      var status = makePost(repo);
+      if(status == 200){
+        btn.innerHTML = "Remove";
+      }
+      else {
+        alert('Could not add')
+      }
+    };
+  }
+  function makePost(repo) {
+    var postReq;
+
+    postReq = new XMLHttpRequest();
+
+    postReq.onreadystatechange = function() {
+      if (postReq.readyState == XMLHttpRequest.DONE ) {
+        return postReq.state;
+      }
+    }
+
+    postReq.open("POST", "/add/" + repo);
+    postReq.send();
+  }
+</script>
+</html>
