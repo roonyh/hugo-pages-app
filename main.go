@@ -45,15 +45,20 @@ type Repo struct {
 var dbSession *mgo.Session
 var users *mgo.Collection
 var repos *mgo.Collection
+var config *Configuration
 
 func main() {
-	dbSession, err := mgo.Dial("localhost")
+	config = loadConfig()
+	config.print()
+
+	dbSession, err := mgo.Dial(config.MongoURL)
 	if err != nil {
 		panic(err)
 	}
 	defer dbSession.Close()
 
-	users = dbSession.DB("ghpages").C("users")
+	users = dbSession.DB("hugo-pages").C("users")
+	repos = dbSession.DB("hugo-pages").C("repos")
 
 	router := gin.Default()
 	router.Use(sessionMiddleware)
@@ -153,9 +158,9 @@ func main() {
 		token, _ := tokenFromJSON(user.AccessToken)
 
 		owner := c.Param("owner")
-		repo := c.Param("repo")
+		reponame := c.Param("repo")
 
-		err := addWebHook(token, owner, repo)
+		err := addWebHook(token, owner, reponame)
 		if err != nil {
 			c.JSON(http.StatusNotAcceptable, gin.H{
 				"error": err.Error(),
@@ -163,7 +168,15 @@ func main() {
 			return
 		}
 
-		c.JSON(http.StatusAccepted, nil)
+		repo := &Repo{
+			ID:          owner + "/" + reponame,
+			Username:    user.Username,
+			AccessToken: token.AccessToken,
+		}
+		fmt.Println(repo)
+		addRepo(repo)
+
+		c.JSON(http.StatusOK, nil)
 	})
 
 	router.Run(":8080")
@@ -220,7 +233,7 @@ func addWebHook(token *oauth2.Token, owner, repo string) error {
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	client := github.NewClient(oauthClient)
 	web := "web"
-	url := "http://localhost:8000/"
+	url := config.HookHandler
 	hook := &github.Hook{
 		Name:   &web,
 		Events: []string{"push"},
