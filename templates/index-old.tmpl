@@ -1,0 +1,32 @@
+<html>
+<body>
+  <h1>
+    Hugo Pages
+  </h1>
+  {{if .user}}
+  <div>
+    Hello {{.user.Username}} <br>
+    See your, <br>
+    <a href="/repos">Repos</a> | <a href="/builds">Builds</a>
+  </div>
+  {{else}}
+  <div>
+    Log in with <a href="/login">GitHub</a>
+  </div>
+  {{end}}
+  <h2>
+    What?
+  </h2>
+  <p>
+    Its tool that will deploy your hugo websites on GitHub pages. <br>
+    Just like when you use Jekyll powerd GitHub pages. <br>
+    Except instead of a <strong>gh-pages</strong> branch you push to a <strong>hg-pages</strong> branch.
+  </p>
+  <h2>
+    Why?
+  </h2>
+  <h2>
+    How?
+  </h2>
+<body>
+</html>

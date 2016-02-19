@@ -1,5 +1,5 @@
 {
-  "address": ":8080",
+  "address": ":6080",
   "hookHandler": "http://104.131.62.228:8081/",
-  "mongoURL": "104.131.62.228"
+  "mongoURL": "localhost"
 }

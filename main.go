@@ -63,12 +63,15 @@ func main() {
 	router := gin.Default()
 	router.Use(sessionMiddleware)
 
+	router.Static("/public", "./public")
+
 	router.LoadHTMLGlob("templates/*")
 
 	router.GET("/", func(c *gin.Context) {
 		user := c.Keys["user"]
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"user": user,
+			"user":    user,
+			"content": "ROOT",
 		})
 	})
 
@@ -133,10 +136,18 @@ func main() {
 
 		token, _ := tokenFromJSON(user.AccessToken)
 
-		repos := getGHUserRepos(token)
+		repos := getGHUserRepos(token, user.Username)
 
-		c.HTML(http.StatusOK, "repos.tmpl", gin.H{
-			"repos": repos,
+		repoMap := make(map[string][]*github.Repository)
+
+		for _, r := range repos {
+
+		}
+
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{
+			"user":    user,
+			"repos":   repos,
+			"content": "REPOS",
 		})
 	})
 
@@ -215,18 +226,29 @@ func getGHUser(token *oauth2.Token) *github.User {
 	return user
 }
 
-func getGHUserRepos(token *oauth2.Token) []github.Repository {
+func getGHUserRepos(token *oauth2.Token, username string) []github.Repository {
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	client := github.NewClient(oauthClient)
 	repoListOpts := &github.RepositoryListOptions{
 		Sort: "updated",
 	}
-	repos, _, err := client.Repositories.List("", repoListOpts)
+	repos, _, err := client.Repositories.List(username, repoListOpts)
 	if err != nil {
 		fmt.Printf("client.Repositories.List() failed with '%s'\n", err)
 		return nil
 	}
 	return repos
+}
+
+func getGHUserOrgs(token *oauth2.Token) []github.Organization {
+	oauthClient := oauthConf.Client(oauth2.NoContext, token)
+	client := github.NewClient(oauthClient)
+	orgs, _, err := client.Organizations.List("", nil)
+	if err != nil {
+		fmt.Printf("client.Repositories.List() failed with '%s'\n", err)
+		return nil
+	}
+	return orgs
 }
 
 func addWebHook(token *oauth2.Token, owner, repo string) error {
@@ -241,7 +263,7 @@ func addWebHook(token *oauth2.Token, owner, repo string) error {
 		Config: map[string]interface{}{
 			"url":          url,
 			"insecure_ssl": true,
-			"secret":       "hgpagessecret",
+			"secret":       "hugopagessecret",
 			"content_type": "json",
 		},
 	}

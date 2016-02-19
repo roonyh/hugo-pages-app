@@ -1,0 +1,23 @@
+{{define "ROOT"}}
+<div id="title-container">
+	<h1 id="title"> Hugo Pages <span><code>Beta</code></span> </h1>
+	<p id="tag">GitHub Pages - Jekyll + <a href="https://gohugo.io/">Hugo</a></p>
+
+	<div class="u-centered-content">
+		{{if .user}}
+		<a class="button" href="/login"> Add Project </a>
+		{{else}}
+		<a class="button" href="/login"> Login with Github </a>
+		{{end}}
+	</div>
+</div>
+
+<div class="container">
+<div id="instructions">
+	<p>Log In with Github and add Hugo Pages to you projects.</p>
+	<p>Everytime you push to <strong>hugo-pages</strong> branch<br>
+	your site will be built and deployed to Github Pages</p>
+	<p>So you can use Hugo just like you use Jekyll!</p>
+</div>
+</div>
+{{end}}

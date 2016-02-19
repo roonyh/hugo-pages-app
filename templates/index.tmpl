@@ -1,32 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Hugo Pages</title>
+
+<link rel="stylesheet" type="text/css" href="/public/normalize.css">
+<link rel="stylesheet" type="text/css" href="/public/skeleton.css">
+<link rel="stylesheet" type="text/css" href="/public/style.css">
+</head>
+
 <body>
-  <h1>
-    Hugo Pages
-  </h1>
-  {{if .user}}
-  <div>
-    Hello {{.user.Username}} <br>
-    See your, <br>
-    <a href="/repos">Repos</a> | <a href="/builds">Builds</a>
-  </div>
-  {{else}}
-  <div>
-    Log in with <a href="/login">GitHub</a>
-  </div>
-  {{end}}
-  <h2>
-    What?
-  </h2>
-  <p>
-    Its tool that will deploy your hugo websites on GitHub pages. <br>
-    Just like when you use Jekyll powerd GitHub pages. <br>
-    Except instead of a <strong>gh-pages</strong> branch you push to a <strong>hg-pages</strong> branch.
-  </p>
-  <h2>
-    Why?
-  </h2>
-  <h2>
-    How?
-  </h2>
-<body>
+	<div class="navbar-spacer"></div>
+	<nav class="navbar">
+		 <div class="container">
+			 <ul class="navbar-list">
+				 <li class="navbar-item navbar-logo"><a class="navbar-link" href="/"><strong>Hugo Pages</strong></a></li>
+			   {{if .user}}
+				 <li class="navbar-item"><a class="navbar-link" href="/#logout">Logout</a></li>
+				 <li class="navbar-item navbar-separator">|</li>
+				 <li class="navbar-item"><a class="navbar-link" href="/repos">Add Project</a></li>
+				 {{else}}
+				 <li class="navbar-item"><a class="navbar-link" href="/login">Login With Github</a></li>
+				 {{end}}
+			 </ul>
+		 </div>
+	</nav>
+	<div id="page-content">
+		{{if eq .content "ROOT"}}
+			{{template "ROOT" .}}
+		{{else if eq .content "REPOS"}}
+			{{template "REPOS" .}}
+		{{else}}
+			Thats an error
+		{{end}}
+	</div>
+	<div id="footer">
+		By <a href="http://www.arunaherath.com/">Aruna Herath</a>
+	</div>
+</body>
 </html>

@@ -1,25 +1,38 @@
-<html>
-<body>
-  <h1>
-    Hugo Pages
-  </h1>
-  <table>
-  {{range .repos}}
-  <tr>
-    <td>
-      {{.FullName}}
-    </td>
-    <td>
-      <button class="repo-btn" data-repofullname={{.FullName}} type="button">Add</button>
-    </td>
-  </tr>
-  {{else}}
-  <div>
-    You don't have any Github repos. Create one now.
+{{define "REPOS"}}
+
+<div class="container">
+  <div class="row">
+    <div class="five columns">
+    {{range .orgs}}
+    <tr>
+      <td>
+        {{.Login}}
+      </td>
+    </tr>
+    {{end}}
+    </div>
+    <div class="seven columns">
+      <div class="u-centered-table">
+        <table id="projects">
+        {{range .repos}}
+        <tr>
+          <td>
+            {{.FullName}}
+          </td>
+          <td>
+            <button class="repo-btn" data-repofullname={{.FullName}} type="button">Add</button>
+          </td>
+        </tr>
+        {{else}}
+        <div>
+          You don't have any Github repos. Create one now.
+        </div>
+        {{end}}
+        </table>
+      </dev>
+    </div>
   </div>
-  {{end}}
-  </table>
-<body>
+</div>
 <script>
   var repoButtons = document.querySelectorAll(".repo-btn")
   for (i = 0; i < repoButtons.length; ++i) {
@@ -52,4 +65,4 @@
     postReq.send();
   }
 </script>
-</html>
+{{end}}
