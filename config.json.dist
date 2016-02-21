@@ -1,5 +1,7 @@
 {
   "address": ":6080",
   "hookHandler": "http://104.131.62.228:8081/",
-  "mongoURL": "localhost"
+  "mongoURL": "localhost",
+  "clientSecret": "",
+  "clientID": ""
 }

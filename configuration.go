@@ -8,8 +8,11 @@ import (
 
 // Configuration contains config options for service
 type Configuration struct {
-	MongoURL    string
-	HookHandler string
+	Address      string
+	MongoURL     string
+	HookHandler  string
+	ClientID     string
+	ClientSecret string
 }
 
 func loadConfig() *Configuration {

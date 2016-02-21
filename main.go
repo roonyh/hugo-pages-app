@@ -19,12 +19,7 @@ import (
 )
 
 var (
-	oauthConf = &oauth2.Config{
-		ClientID:     "c8a763fbba40248d6439",
-		ClientSecret: "be9050c65f03e053f501798a9515bcf4eed4d84e",
-		Scopes:       []string{"user:email", "repo"},
-		Endpoint:     githuboauth.Endpoint,
-	}
+	oauthConf *oauth2.Config
 	// random string for oauth2 API calls to protect against CSRF
 	oauthStateString = "thisshouldberandom"
 )
@@ -51,6 +46,13 @@ var config *Configuration
 func main() {
 	config = loadConfig()
 	config.print()
+
+	var oauthConf = &oauth2.Config{
+		ClientID:     config.ClientID,
+		ClientSecret: config.ClientSecret,
+		Scopes:       []string{"user:email", "repo"},
+		Endpoint:     githuboauth.Endpoint,
+	}
 
 	dbSession, err := mgo.Dial(config.MongoURL)
 	if err != nil {
