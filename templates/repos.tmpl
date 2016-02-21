@@ -2,38 +2,17 @@
 
 <div class="container">
   <div class="row">
-    <div class="five columns">
-    {{range .orgs}}
-    <tr>
-      <td>
-        {{.Login}}
-      </td>
-    </tr>
-    {{end}}
-    </div>
-    <div class="seven columns">
+    <div id="repo-list" class="seven columns">
       <div class="u-centered-table">
         <table id="projects">
-        {{range .repos}}
-        <tr>
-          <td>
-            {{.FullName}}
-          </td>
-          <td>
-            <button class="repo-btn" data-repofullname={{.FullName}} type="button">Add</button>
-          </td>
-        </tr>
-        {{else}}
-        <div>
-          You don't have any Github repos. Create one now.
-        </div>
-        {{end}}
+          {{template "REPOLIST" .}}
         </table>
-      </dev>
+      </div>
     </div>
   </div>
 </div>
 <script>
+  /* Click handlers for `Add` buttons */
   var repoButtons = document.querySelectorAll(".repo-btn")
   for (i = 0; i < repoButtons.length; ++i) {
     var repo = repoButtons[i].dataset.repofullname
@@ -41,28 +20,60 @@
   }
   function createFunc(repo, btn) {
     return function() {
-      var status = makePost(repo);
-      if(status == 200){
-        btn.innerHTML = "Remove";
+      inthis = this;
+      console.log(this);
+      var callback = function(req) {
+        if(status == 200){
+          btn.innerHTML = "Remove";
+        }
+        else {
+          alert('Could not add')
+        }
       }
-      else {
-        alert('Could not add')
-      }
+
+      makeRequest("/add/" + repo, "POST", callback);
     };
   }
-  function makePost(repo) {
-    var postReq;
 
-    postReq = new XMLHttpRequest();
+  function makeRequest(url, method, callback) {
+    var req = new XMLHttpRequest();
 
-    postReq.onreadystatechange = function() {
-      if (postReq.readyState == XMLHttpRequest.DONE ) {
-        return postReq.state;
+    req.onreadystatechange = function() {
+      if (req.readyState == XMLHttpRequest.DONE ) {
+        callback(req);
       }
     }
 
-    postReq.open("POST", "/add/" + repo);
-    postReq.send();
+    req.open(method, url);
+    req.send();
   }
+
+  {{if eq .areMore true}}
+  /* more repos are left to be brought */
+  getRepos(2);
+
+  function getRepos(page){
+    makeRequest("/only-repos?page=" + page, "GET", function(req){
+      var nextPage = req.getResponseHeader("HG-PG-Next-Page");
+      htmldata = req.response;
+      var element = document.getElementById("projects").getElementsByTagName("tbody")[0]
+      var tempel = document.createElement("tbody");
+      tempel.innerHTML = htmldata;
+      var repoButtons = tempel.querySelectorAll(".repo-btn")
+      for (i = 0; i < repoButtons.length; ++i) {
+        var repo = repoButtons[i].dataset.repofullname
+        repoButtons[i].onclick = createFunc(repo, repoButtons[i])
+      }
+
+      while(tempel.firstChild) {
+          //console.log(tempel.firstChild);
+          element.appendChild(tempel.firstChild);
+      }
+      if(nextPage !== "0"){
+        getRepos(nextPage);
+      }
+    })
+  }
+  {{end}}
 </script>
 {{end}}

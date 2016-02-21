@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-github/github"
@@ -136,18 +137,53 @@ func main() {
 
 		token, _ := tokenFromJSON(user.AccessToken)
 
-		repos := getGHUserRepos(token, user.Username)
+		repos, resp := getGHUserRepos(token, 1)
 
-		repoMap := make(map[string][]*github.Repository)
-
-		for _, r := range repos {
-
+		var areMore bool
+		if resp != nil {
+			areMore = resp.NextPage != 0
 		}
 
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
 			"user":    user,
 			"repos":   repos,
+			"areMore": areMore,
 			"content": "REPOS",
+		})
+	})
+
+	router.GET("/only-repos", func(c *gin.Context) {
+		userUncast, ok := c.Keys["user"]
+		if ok != true {
+			fmt.Println("Not logged in")
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		user, ok := userUncast.(User)
+		if ok != true {
+			fmt.Println("Error: Cant cast to User")
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		token, _ := tokenFromJSON(user.AccessToken)
+
+		page := c.Query("page")
+		pageInt, err := strconv.Atoi(page)
+		if err != nil {
+			log.Println("could not convert page")
+		}
+		if pageInt == 0 {
+			pageInt = 1
+		}
+
+		repos, resp := getGHUserRepos(token, pageInt)
+
+		c.Header("HG-PG-Next-Page", strconv.Itoa(resp.NextPage))
+
+		c.HTML(http.StatusOK, "repolist.tmpl", gin.H{
+			"repos": repos,
 		})
 	})
 
@@ -226,18 +262,23 @@ func getGHUser(token *oauth2.Token) *github.User {
 	return user
 }
 
-func getGHUserRepos(token *oauth2.Token, username string) []github.Repository {
+func getGHUserRepos(token *oauth2.Token, page int) ([]github.Repository, *github.Response) {
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	client := github.NewClient(oauthClient)
 	repoListOpts := &github.RepositoryListOptions{
 		Sort: "updated",
+		ListOptions: github.ListOptions{
+			PerPage: 50,
+			Page:    page,
+		},
 	}
-	repos, _, err := client.Repositories.List(username, repoListOpts)
+	repos, resp, err := client.Repositories.List("", repoListOpts)
+
 	if err != nil {
 		fmt.Printf("client.Repositories.List() failed with '%s'\n", err)
-		return nil
+		return nil, nil
 	}
-	return repos
+	return repos, resp
 }
 
 func getGHUserOrgs(token *oauth2.Token) []github.Organization {

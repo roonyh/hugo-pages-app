@@ -1,0 +1,20 @@
+{{define "REPOLIST"}}
+
+  {{range .repos}}
+  <tr>
+    <td>
+      {{.FullName}}
+    </td>
+    <td>
+      <button class="repo-btn" data-repofullname={{.FullName}} type="button">Add</button>
+    </td>
+  </tr>
+  {{else}}
+  <div>
+    You don't have any Github repos. Create one now.
+  </div>
+  {{end}}
+
+{{end}}
+
+{{template "REPOLIST" .}}
