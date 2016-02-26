@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-github/github"
@@ -29,6 +31,7 @@ type User struct {
 	ID          string `bson:"_id,omitempty"`
 	Username    string
 	AccessToken string
+	Repos       []string
 }
 
 // Repo is a github repo
@@ -68,8 +71,13 @@ func main() {
 
 	router.Static("/public", "./public")
 
-	router.LoadHTMLGlob("templates/*")
+	t := template.Must(template.New("").Funcs(template.FuncMap{
+		"Deref": func(i *int) int { return *i },
+	}).ParseGlob("templates/*"))
 
+	router.SetHTMLTemplate(t)
+
+	/* Request handlers */
 	router.GET("/", func(c *gin.Context) {
 		user := c.Keys["user"]
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
@@ -146,11 +154,18 @@ func main() {
 			areMore = resp.NextPage != 0
 		}
 
+		addedRepos := make(map[int]bool)
+		for _, r := range user.Repos {
+			ri, _ := strconv.Atoi(r)
+			addedRepos[ri] = true
+		}
+
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"user":    user,
-			"repos":   repos,
-			"areMore": areMore,
-			"content": "REPOS",
+			"user":       user,
+			"repos":      repos,
+			"addedRepos": addedRepos,
+			"areMore":    areMore,
+			"content":    "REPOS",
 		})
 	})
 
@@ -184,12 +199,19 @@ func main() {
 
 		c.Header("HG-PG-Next-Page", strconv.Itoa(resp.NextPage))
 
+		addedRepos := make(map[int]bool)
+		for _, r := range user.Repos {
+			ri, _ := strconv.Atoi(r)
+			addedRepos[ri] = true
+		}
+
 		c.HTML(http.StatusOK, "repolist.tmpl", gin.H{
-			"repos": repos,
+			"repos":      repos,
+			"addedRepos": addedRepos,
 		})
 	})
 
-	router.POST("/add/:owner/:repo", func(c *gin.Context) {
+	router.POST("/add", func(c *gin.Context) {
 		userUncast, ok := c.Keys["user"]
 		if ok != true {
 			fmt.Println("Not logged in")
@@ -206,10 +228,10 @@ func main() {
 
 		token, _ := tokenFromJSON(user.AccessToken)
 
-		owner := c.Param("owner")
-		reponame := c.Param("repo")
+		fullname := c.Query("fullname")
+		id := c.Query("id")
 
-		err := addWebHook(token, owner, reponame)
+		err := addWebHook(token, fullname)
 		if err != nil {
 			c.JSON(http.StatusNotAcceptable, gin.H{
 				"error": err.Error(),
@@ -218,18 +240,25 @@ func main() {
 		}
 
 		repo := &Repo{
-			ID:          owner + "/" + reponame,
+			ID:          id,
 			Username:    user.Username,
 			AccessToken: token.AccessToken,
 		}
-		fmt.Println(repo)
-		addRepo(repo)
+		err = addRepo(repo, &user)
+		if err != nil {
+			c.JSON(http.StatusNotAcceptable, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 
 		c.JSON(http.StatusOK, nil)
 	})
 
 	router.Run(":8080")
 }
+
+/* Helpers */
 
 func newSessionID() string {
 	b := make([]byte, 32)
@@ -239,18 +268,34 @@ func newSessionID() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func addUser(user *User) {
+func addUser(user *User) error {
 	err := users.Insert(user)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error adding repo: %s", err.Error())
 	}
+	return err
 }
 
-func addRepo(repo *Repo) {
+func addRepo(repo *Repo, user *User) error {
 	err := repos.Insert(repo)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error adding repo: %s", err.Error())
+		return err
 	}
+
+	//users.Update(selector interface{}, update interface{})
+	change := bson.M{
+		"$push": bson.M{
+			"repos": repo.ID,
+		},
+	}
+	users.UpdateId(user.ID, change)
+
+	if err != nil {
+		log.Printf("Error adding repo: %s", err.Error())
+	}
+
+	return err
 }
 
 func getGHUser(token *oauth2.Token) *github.User {
@@ -294,7 +339,8 @@ func getGHUserOrgs(token *oauth2.Token) []github.Organization {
 	return orgs
 }
 
-func addWebHook(token *oauth2.Token, owner, repo string) error {
+func addWebHook(token *oauth2.Token, fullname string) error {
+	ownerAndRepo := strings.Split(fullname, "/")
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	client := github.NewClient(oauthClient)
 	web := "web"
@@ -310,8 +356,8 @@ func addWebHook(token *oauth2.Token, owner, repo string) error {
 			"content_type": "json",
 		},
 	}
-	_, resp, err := client.Repositories.CreateHook(owner, repo, hook)
-	fmt.Println(resp, err)
+	_, _, err := client.Repositories.CreateHook(ownerAndRepo[0], ownerAndRepo[1], hook)
+
 	return err
 }
 
@@ -348,6 +394,8 @@ func sessionMiddleware(c *gin.Context) {
 		fmt.Println(err)
 		return
 	}
+
+	fmt.Println(result)
 
 	if c.Keys == nil {
 		c.Keys = make(map[string]interface{})

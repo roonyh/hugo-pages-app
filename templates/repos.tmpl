@@ -2,7 +2,16 @@
 
 <div class="container">
   <div class="row">
-    <div id="repo-list" class="seven columns">
+    <div id="filters" class="four columns">
+      <div style="visibility: hidden;">filters</div>
+      <div id="filters-container">
+        <form>
+          <label for="contains">Containing:</label>
+          <input class="u-full-width" type="text" id="contains" oninput="_onInputEvent(this)">
+        </form>
+      </div>
+    </div>
+    <div id="repo-list" class="eight columns">
       <div class="u-centered-table">
         <table id="projects">
           {{template "REPOLIST" .}}
@@ -12,27 +21,24 @@
   </div>
 </div>
 <script>
-  /* Click handlers for `Add` buttons */
-  var repoButtons = document.querySelectorAll(".repo-btn")
-  for (i = 0; i < repoButtons.length; ++i) {
-    var repo = repoButtons[i].dataset.repofullname
-    repoButtons[i].onclick = createFunc(repo, repoButtons[i])
-  }
-  function createFunc(repo, btn) {
-    return function() {
-      inthis = this;
-      console.log(this);
-      var callback = function(req) {
-        if(status == 200){
-          btn.innerHTML = "Remove";
-        }
-        else {
-          alert('Could not add')
-        }
+  function oc(btn) {
+    /* on click handler for repos not added */
+    var callback = function(req) {
+      if(req.status == 200){
+        btn.innerHTML = "Edit";
+        btn.onclick = ocadded(btn);
       }
+      else {
+        alert('Could not add')
+      }
+    }
 
-      makeRequest("/add/" + repo, "POST", callback);
-    };
+    makeRequest("/add?id=" + btn.dataset.id + '&fullname=' + btn.dataset.fn, "POST", callback);
+  }
+
+  function ocadded(btn) {
+    /* on click handler for repos already added */
+    window.location.href = "/edit/"+btn.dataset.fn;
   }
 
   function makeRequest(url, method, callback) {
@@ -48,6 +54,24 @@
     req.send();
   }
 
+  /* table filter */
+  var _input = document.getElementById("contains");
+
+  function _onInputEvent(e) {
+    var table = document.getElementById("projects");
+    Array.prototype.forEach.call(table.tBodies, function(tbody) {
+      Array.prototype.forEach.call(tbody.rows, _filter);
+    });
+  }
+
+  function _filter(row) {
+    var text = row.textContent.toLowerCase(), val = _input.value.toLowerCase();
+    row.style.display = text.indexOf(val) === -1 ? 'none' : 'table-row';
+  }
+
+  var input = document.getElementById("contains");
+  input.oninput = _onInputEvent;
+
   {{if eq .areMore true}}
   /* more repos are left to be brought */
   getRepos(2);
@@ -59,15 +83,10 @@
       var element = document.getElementById("projects").getElementsByTagName("tbody")[0]
       var tempel = document.createElement("tbody");
       tempel.innerHTML = htmldata;
-      var repoButtons = tempel.querySelectorAll(".repo-btn")
-      for (i = 0; i < repoButtons.length; ++i) {
-        var repo = repoButtons[i].dataset.repofullname
-        repoButtons[i].onclick = createFunc(repo, repoButtons[i])
-      }
+      Array.prototype.forEach.call(tempel.rows, _filter)
 
       while(tempel.firstChild) {
-          //console.log(tempel.firstChild);
-          element.appendChild(tempel.firstChild);
+        element.appendChild(tempel.firstChild);
       }
       if(nextPage !== "0"){
         getRepos(nextPage);

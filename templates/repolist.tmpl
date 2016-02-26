@@ -1,12 +1,16 @@
 {{define "REPOLIST"}}
-
+  {{$addedRepos := .addedRepos}}
   {{range .repos}}
   <tr>
     <td>
       {{.FullName}}
     </td>
     <td>
-      <button class="repo-btn" data-repofullname={{.FullName}} type="button">Add</button>
+      {{if eq (index $addedRepos (Deref .ID)) true}}
+      <button onclick="ocadded(this)" data-fn={{.FullName}} data-id={{.ID}} type="button">Edit</button>
+      {{else}}
+      <button onclick="oc(this)" data-fn={{.FullName}} data-id={{.ID}} type="button">Add</button>
+      {{end}}
     </td>
   </tr>
   {{else}}
