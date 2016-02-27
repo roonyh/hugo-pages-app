@@ -26,22 +26,30 @@ var (
 	oauthStateString = "thisshouldberandom"
 )
 
-// User is a user
-type User struct {
+// Session is a session
+type Session struct {
 	ID          string `bson:"_id,omitempty"`
 	Username    string
 	AccessToken string
-	Repos       []string
+}
+
+// User is a user
+type User struct {
+	Username string `bson:"_id,omitempty"`
+	Repos    []string
 }
 
 // Repo is a github repo
 type Repo struct {
 	ID          string `bson:"_id,omitempty"`
+	Fullname    string
 	Username    string
 	AccessToken string
+	HookID      int
 }
 
 var dbSession *mgo.Session
+var sessions *mgo.Collection
 var users *mgo.Collection
 var repos *mgo.Collection
 var config *Configuration
@@ -63,6 +71,7 @@ func main() {
 	}
 	defer dbSession.Close()
 
+	sessions = dbSession.DB("hugo-pages").C("sessions")
 	users = dbSession.DB("hugo-pages").C("users")
 	repos = dbSession.DB("hugo-pages").C("repos")
 
@@ -79,7 +88,7 @@ func main() {
 
 	/* Request handlers */
 	router.GET("/", func(c *gin.Context) {
-		user := c.Keys["user"]
+		user := c.Keys["session"]
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
 			"user":    user,
 			"content": "ROOT",
@@ -110,20 +119,25 @@ func main() {
 
 		ghuser := getGHUser(token)
 
-		fmt.Printf("Logged in as GitHub user: %s\n", *ghuser.Login)
+		log.Printf("Logged in as GitHub user: %s\n", *ghuser.Login)
 
 		sessionID := newSessionID()
 		tokenString, _ := tokenToJSON(token)
 
-		fmt.Println("ses", sessionID)
-
-		newUser := &User{
+		newSession := &Session{
 			ID:          sessionID,
 			Username:    *ghuser.Login,
 			AccessToken: tokenString,
 		}
 
-		addUser(newUser)
+		addSession(newSession)
+
+		user := &User{
+			Username: *ghuser.Login,
+			Repos:    []string{},
+		}
+
+		addUser(user)
 
 		c.SetCookie("use_ghpages", sessionID, 2*365*24*60*60, "/", "", false, true)
 
@@ -131,21 +145,20 @@ func main() {
 	})
 
 	router.GET("/repos", func(c *gin.Context) {
-		userUncast, ok := c.Keys["user"]
+		sessionUncast, ok := c.Keys["session"]
 		if ok != true {
-			fmt.Println("Not logged in")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 
-		user, ok := userUncast.(User)
+		session, ok := sessionUncast.(Session)
 		if ok != true {
-			fmt.Println("Error: Cant cast to User")
+			fmt.Println("Error: Cant cast to Session")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 
-		token, _ := tokenFromJSON(user.AccessToken)
+		token, _ := tokenFromJSON(session.AccessToken)
 
 		repos, resp := getGHUserRepos(token, 1)
 
@@ -153,6 +166,11 @@ func main() {
 		if resp != nil {
 			areMore = resp.NextPage != 0
 		}
+
+		user := User{}
+		err = users.Find(bson.M{"_id": session.Username}).One(&user)
+
+		fmt.Println("user: ", user)
 
 		addedRepos := make(map[int]bool)
 		for _, r := range user.Repos {
@@ -170,21 +188,20 @@ func main() {
 	})
 
 	router.GET("/only-repos", func(c *gin.Context) {
-		userUncast, ok := c.Keys["user"]
+		sessionUncast, ok := c.Keys["session"]
 		if ok != true {
-			fmt.Println("Not logged in")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 
-		user, ok := userUncast.(User)
+		session, ok := sessionUncast.(Session)
 		if ok != true {
-			fmt.Println("Error: Cant cast to User")
+			fmt.Println("Error: Cant cast to Session")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 
-		token, _ := tokenFromJSON(user.AccessToken)
+		token, _ := tokenFromJSON(session.AccessToken)
 
 		page := c.Query("page")
 		pageInt, err := strconv.Atoi(page)
@@ -199,6 +216,9 @@ func main() {
 
 		c.Header("HG-PG-Next-Page", strconv.Itoa(resp.NextPage))
 
+		user := User{}
+		err = users.Find(bson.M{"_id": session.Username}).One(&user)
+
 		addedRepos := make(map[int]bool)
 		for _, r := range user.Repos {
 			ri, _ := strconv.Atoi(r)
@@ -212,40 +232,34 @@ func main() {
 	})
 
 	router.POST("/add", func(c *gin.Context) {
-		userUncast, ok := c.Keys["user"]
+		sessionUncast, ok := c.Keys["session"]
 		if ok != true {
-			fmt.Println("Not logged in")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 
-		user, ok := userUncast.(User)
+		session, ok := sessionUncast.(Session)
 		if ok != true {
-			fmt.Println("Error: Cant cast to User")
+			fmt.Println("Error: Cant cast to Session")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 
-		token, _ := tokenFromJSON(user.AccessToken)
+		token, _ := tokenFromJSON(session.AccessToken)
 
 		fullname := c.Query("fullname")
 		id := c.Query("id")
 
-		err := addWebHook(token, fullname)
-		if err != nil {
-			c.JSON(http.StatusNotAcceptable, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
 		repo := &Repo{
 			ID:          id,
-			Username:    user.Username,
+			Fullname:    fullname,
+			Username:    session.Username,
 			AccessToken: token.AccessToken,
 		}
-		err = addRepo(repo, &user)
+		err = addRepo(repo, &session, token)
+
 		if err != nil {
+			log.Println(err.Error(), fullname)
 			c.JSON(http.StatusNotAcceptable, gin.H{
 				"error": err.Error(),
 			})
@@ -253,6 +267,25 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, nil)
+	})
+
+	router.GET("/edit/:id/:owner/:repo", func(c *gin.Context) {
+		sessionUncast, ok := c.Keys["session"]
+		if ok != true {
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		_, ok = sessionUncast.(Session)
+		if ok != true {
+			fmt.Println("Error: Cant cast to Session")
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{
+			"content": "BUILDS",
+		})
 	})
 
 	router.Run(":8080")
@@ -268,6 +301,14 @@ func newSessionID() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
+func addSession(session *Session) error {
+	err := sessions.Insert(session)
+	if err != nil {
+		log.Printf("Error adding session: %s", err.Error())
+	}
+	return err
+}
+
 func addUser(user *User) error {
 	err := users.Insert(user)
 	if err != nil {
@@ -276,26 +317,57 @@ func addUser(user *User) error {
 	return err
 }
 
-func addRepo(repo *Repo, user *User) error {
+func addRepo(repo *Repo, session *Session, token *oauth2.Token) error {
 	err := repos.Insert(repo)
 	if err != nil {
-		log.Printf("Error adding repo: %s", err.Error())
+		if mgo.IsDup(err) {
+			fmt.Println("---> duuup")
+			// We already have a hook added for this repo
+			// For Organization repos only the user who added the repo to build
+			// will be shown that its already added. :(
+			currentRepo := Repo{}
+			err := repos.FindId(repo.ID).One(&currentRepo)
+			log.Println(currentRepo)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			err = deleteWebHook(token, repo.Fullname, currentRepo.HookID)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	hook, err := addWebHook(token, repo.Fullname)
+	if err != nil {
 		return err
 	}
 
-	//users.Update(selector interface{}, update interface{})
 	change := bson.M{
 		"$push": bson.M{
 			"repos": repo.ID,
 		},
 	}
-	users.UpdateId(user.ID, change)
-
+	err = users.UpdateId(session.Username, change)
 	if err != nil {
-		log.Printf("Error adding repo: %s", err.Error())
+		return err
 	}
 
-	return err
+	change = bson.M{
+		"$set": bson.M{
+			"hookid": hook.ID,
+		},
+	}
+	repos.UpdateId(repo.ID, change)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getGHUser(token *oauth2.Token) *github.User {
@@ -339,7 +411,7 @@ func getGHUserOrgs(token *oauth2.Token) []github.Organization {
 	return orgs
 }
 
-func addWebHook(token *oauth2.Token, fullname string) error {
+func addWebHook(token *oauth2.Token, fullname string) (*github.Hook, error) {
 	ownerAndRepo := strings.Split(fullname, "/")
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	client := github.NewClient(oauthClient)
@@ -356,7 +428,20 @@ func addWebHook(token *oauth2.Token, fullname string) error {
 			"content_type": "json",
 		},
 	}
-	_, _, err := client.Repositories.CreateHook(ownerAndRepo[0], ownerAndRepo[1], hook)
+
+	hook, _, err := client.Repositories.CreateHook(ownerAndRepo[0], ownerAndRepo[1], hook)
+
+	return hook, err
+}
+
+func deleteWebHook(token *oauth2.Token, fullname string, id int) error {
+	oauthClient := oauthConf.Client(oauth2.NoContext, token)
+	client := github.NewClient(oauthClient)
+	ownerAndRepo := strings.Split(fullname, "/")
+	_, err := client.Repositories.DeleteHook(ownerAndRepo[0], ownerAndRepo[1], id)
+	if err == nil {
+		log.Printf("deleted hook %s %d", fullname, id)
+	}
 
 	return err
 }
@@ -388,8 +473,8 @@ func sessionMiddleware(c *gin.Context) {
 		return
 	}
 
-	result := User{}
-	err = users.Find(bson.M{"_id": sessionID}).One(&result)
+	result := Session{}
+	err = sessions.Find(bson.M{"_id": sessionID}).One(&result)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -400,6 +485,6 @@ func sessionMiddleware(c *gin.Context) {
 	if c.Keys == nil {
 		c.Keys = make(map[string]interface{})
 	}
-	c.Keys["user"] = result
+	c.Keys["session"] = result
 	c.Next()
 }

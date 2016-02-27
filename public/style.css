@@ -84,8 +84,11 @@ a:hover{
 .loading,
 .loading:hover{
 	background: url("/public/loading-small.gif") no-repeat center;
-	color: #ffffff;
 }
+#projects button{
+	width: 90px
+}
+
 /* Larger than phone */
 @media (min-width: 600px) {
 	.navbar {

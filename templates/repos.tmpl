@@ -24,6 +24,7 @@
   function oc(btn) {
     /* on click handler for repos not added */
     btn.classList.add('loading')
+    btn.innerHTML = "";
 
     var callback = function(req) {
       if(req.status == 200){
@@ -41,7 +42,7 @@
 
   function ocadded() {
     /* on click handler for repos already added */
-    window.location.href = "/edit/"+this.dataset.fn;
+    window.location.href = "/edit/"+this.dataset.id+"/"+this.dataset.fn;
   }
 
   function makeRequest(url, method, callback) {

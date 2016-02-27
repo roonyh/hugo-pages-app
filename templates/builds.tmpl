@@ -1,0 +1,19 @@
+{{define "BUILDS"}}
+<div class="container">
+  <div class="row">
+    <div id="filters" class="four columns">
+      <div id="buildinfo-container">
+        <form>
+          <label for="contains">Last Build:</label>
+          <input class="u-full-width" type="text" id="contains" oninput="_onInputEvent(this)">
+        </form>
+      </div>
+    </div>
+    <div id="build" class="eight columns">
+      <code>
+        This is the output
+      </code>
+    </div>
+  </div>
+</div>
+{{end}}

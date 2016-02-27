@@ -30,6 +30,8 @@
 			{{template "ROOT" .}}
 		{{else if eq .content "REPOS"}}
 			{{template "REPOS" .}}
+		{{else if eq .content "BUILDS"}}
+			{{template "BUILDS" .}}
 		{{else}}
 			Thats an error
 		{{end}}
