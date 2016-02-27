@@ -23,22 +23,25 @@
 <script>
   function oc(btn) {
     /* on click handler for repos not added */
+    btn.classList.add('loading')
+
     var callback = function(req) {
       if(req.status == 200){
         btn.innerHTML = "Edit";
-        btn.onclick = ocadded(btn);
+        btn.onclick = ocadded.bind(btn);
       }
       else {
         alert('Could not add')
       }
+      btn.classList.remove('loading')
     }
 
     makeRequest("/add?id=" + btn.dataset.id + '&fullname=' + btn.dataset.fn, "POST", callback);
   }
 
-  function ocadded(btn) {
+  function ocadded() {
     /* on click handler for repos already added */
-    window.location.href = "/edit/"+btn.dataset.fn;
+    window.location.href = "/edit/"+this.dataset.fn;
   }
 
   function makeRequest(url, method, callback) {
@@ -73,6 +76,7 @@
   input.oninput = _onInputEvent;
 
   {{if eq .areMore true}}
+
   /* more repos are left to be brought */
   getRepos(2);
 

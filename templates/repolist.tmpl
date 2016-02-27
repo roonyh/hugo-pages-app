@@ -7,7 +7,7 @@
     </td>
     <td>
       {{if eq (index $addedRepos (Deref .ID)) true}}
-      <button onclick="ocadded(this)" data-fn={{.FullName}} data-id={{.ID}} type="button">Edit</button>
+      <button onclick="ocadded.bind(this)()" data-fn={{.FullName}} data-id={{.ID}} type="button">Edit</button>
       {{else}}
       <button onclick="oc(this)" data-fn={{.FullName}} data-id={{.ID}} type="button">Add</button>
       {{end}}

@@ -81,6 +81,11 @@ a:hover{
 #projects{
 	margin: 0 auto;
 }
+.loading,
+.loading:hover{
+	background: url("/public/loading-small.gif") no-repeat center;
+	color: #ffffff;
+}
 /* Larger than phone */
 @media (min-width: 600px) {
 	.navbar {
@@ -110,6 +115,7 @@ a:hover{
 
 	#filters-container{
 		position: fixed;
+		width: 24%
 	}
 	#title{
 		font-size:75px;
