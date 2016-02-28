@@ -1,19 +1,53 @@
 {{define "BUILDS"}}
+<br>
 <div class="container">
   <div class="row">
     <div id="filters" class="four columns">
+      <h5>{{.repo.Fullname}}</h5>
       <div id="buildinfo-container">
-        <form>
-          <label for="contains">Last Build:</label>
-          <input class="u-full-width" type="text" id="contains" oninput="_onInputEvent(this)">
-        </form>
+        <label>Last Build</label><span id="status" class="{{.repo.LastBuildStatus}}">{{.repo.LastBuildStatus}}<span>
       </div>
+      <br>
+      <button onclick="removeBtnOc(this)" class="danger" data-fn="{{.repo.Fullname}}" data-id="{{.id}}" type="button">Remove</button>
     </div>
     <div id="build" class="eight columns">
       <code>
-        This is the output
+        {{range .buildOutPut}}
+          > {{.}} <br>
+        {{end}}
       </code>
     </div>
   </div>
 </div>
+<script>
+  function removeBtnOc(btn) {
+    btn.classList.add('loading')
+    btn.innerHTML = "";
+
+    var callback = function(req) {
+      if(req.status == 200){
+        btn.innerHTML = "Add Back";
+      }
+      else {
+        alert('Could not remove')
+      }
+      btn.classList.remove('loading')
+    }
+
+    makeRequest("/remove?id=" + btn.dataset.id + '&fullname=' + btn.dataset.fn, "POST", callback);
+  }
+
+  function makeRequest(url, method, callback) {
+    var req = new XMLHttpRequest();
+
+    req.onreadystatechange = function() {
+      if (req.readyState == XMLHttpRequest.DONE ) {
+        callback(req);
+      }
+    }
+
+    req.open(method, url);
+    req.send();
+  }
+</script>
 {{end}}

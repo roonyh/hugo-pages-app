@@ -88,6 +88,17 @@ a:hover{
 #projects button{
 	width: 90px
 }
+#build code{
+	display: block;
+	padding: 10px;
+}
+#buildinfo-container{
+	padding: 10px;
+	background-color: #D0D0F9;
+}
+button.danger{
+	background-color: #E0BCBC;
+}
 
 /* Larger than phone */
 @media (min-width: 600px) {

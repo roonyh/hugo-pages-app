@@ -36,16 +36,18 @@ type Session struct {
 // User is a user
 type User struct {
 	Username string `bson:"_id,omitempty"`
-	Repos    []string
+	Repos    []int
 }
 
 // Repo is a github repo
 type Repo struct {
-	ID          string `bson:"_id,omitempty"`
-	Fullname    string
-	Username    string
-	AccessToken string
-	HookID      int
+	ID              int `bson:"_id,omitempty"`
+	Fullname        string
+	Username        string
+	AccessToken     string
+	HookID          int
+	LastBuildOutput string
+	LastBuildStatus string
 }
 
 var dbSession *mgo.Session
@@ -134,7 +136,7 @@ func main() {
 
 		user := &User{
 			Username: *ghuser.Login,
-			Repos:    []string{},
+			Repos:    []int{},
 		}
 
 		addUser(user)
@@ -174,8 +176,7 @@ func main() {
 
 		addedRepos := make(map[int]bool)
 		for _, r := range user.Repos {
-			ri, _ := strconv.Atoi(r)
-			addedRepos[ri] = true
+			addedRepos[r] = true
 		}
 
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
@@ -221,8 +222,7 @@ func main() {
 
 		addedRepos := make(map[int]bool)
 		for _, r := range user.Repos {
-			ri, _ := strconv.Atoi(r)
-			addedRepos[ri] = true
+			addedRepos[r] = true
 		}
 
 		c.HTML(http.StatusOK, "repolist.tmpl", gin.H{
@@ -248,7 +248,7 @@ func main() {
 		token, _ := tokenFromJSON(session.AccessToken)
 
 		fullname := c.Query("fullname")
-		id := c.Query("id")
+		id, _ := strconv.Atoi(c.Query("id"))
 
 		repo := &Repo{
 			ID:          id,
@@ -276,16 +276,66 @@ func main() {
 			return
 		}
 
-		_, ok = sessionUncast.(Session)
+		session, ok := sessionUncast.(Session)
 		if ok != true {
 			fmt.Println("Error: Cant cast to Session")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 
+		user := User{}
+		err = users.Find(bson.M{"_id": session.Username}).One(&user)
+
+		id, _ := strconv.Atoi(c.Param("id"))
+
+		repo := Repo{}
+		repos.FindId(id).One(&repo)
+
+		buildOutPut := strings.Split(repo.LastBuildOutput, "\n")
+
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"content": "BUILDS",
+			"user":        user,
+			"id":          id,
+			"repo":        repo,
+			"buildOutPut": buildOutPut,
+			"content":     "BUILDS",
 		})
+	})
+
+	router.POST("/remove", func(c *gin.Context) {
+		sessionUncast, ok := c.Keys["session"]
+		if ok != true {
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		session, ok := sessionUncast.(Session)
+		if ok != true {
+			fmt.Println("Error: Cant cast to Session")
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		token, _ := tokenFromJSON(session.AccessToken)
+
+		fullname := c.Query("fullname")
+		id, _ := strconv.Atoi(c.Query("id"))
+
+		repo := &Repo{
+			ID:       id,
+			Fullname: fullname,
+		}
+		err = removeRepo(repo, &session, token)
+
+		if err != nil {
+			log.Println(err.Error(), fullname)
+			c.JSON(http.StatusNotAcceptable, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, nil)
 	})
 
 	router.Run(":8080")
@@ -327,7 +377,6 @@ func addRepo(repo *Repo, session *Session, token *oauth2.Token) error {
 			// will be shown that its already added. :(
 			currentRepo := Repo{}
 			err := repos.FindId(repo.ID).One(&currentRepo)
-			log.Println(currentRepo)
 			if err != nil {
 				log.Println(err)
 				return err
@@ -363,6 +412,37 @@ func addRepo(repo *Repo, session *Session, token *oauth2.Token) error {
 		},
 	}
 	repos.UpdateId(repo.ID, change)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func removeRepo(repo *Repo, session *Session, token *oauth2.Token) error {
+	currentRepo := Repo{}
+	err := repos.FindId(repo.ID).One(&currentRepo)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	err = deleteWebHook(token, repo.Fullname, currentRepo.HookID)
+	if err != nil {
+		return err
+	}
+
+	err = repos.RemoveId(repo.ID)
+	if err != nil {
+		return err
+	}
+
+	change := bson.M{
+		"$pull": bson.M{
+			"repos": repo.ID,
+		},
+	}
+	err = users.UpdateId(session.Username, change)
 	if err != nil {
 		return err
 	}
