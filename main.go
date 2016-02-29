@@ -8,8 +8,6 @@ import (
 	"html/template"
 	"io"
 	"log"
-	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -60,7 +58,7 @@ func main() {
 	config = loadConfig()
 	config.print()
 
-	var oauthConf = &oauth2.Config{
+	oauthConf = &oauth2.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
 		Scopes:       []string{"user:email", "repo"},
@@ -89,254 +87,15 @@ func main() {
 	router.SetHTMLTemplate(t)
 
 	/* Request handlers */
-	router.GET("/", func(c *gin.Context) {
-		user := c.Keys["session"]
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"user":    user,
-			"content": "ROOT",
-		})
-	})
+	router.GET("/login", login)
+	router.GET("/callback", githubCallback)
 
-	router.GET("/login", func(c *gin.Context) {
-		url := oauthConf.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
-		c.Redirect(http.StatusTemporaryRedirect, url)
-	})
-
-	router.GET("/callback", func(c *gin.Context) {
-		state := c.Query("state")
-		if state != oauthStateString {
-			fmt.Printf("invalid oauth state, expected '%s', got '%s'\n", oauthStateString, state)
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		code := c.Query("code")
-
-		token, err := oauthConf.Exchange(oauth2.NoContext, code)
-		if err != nil {
-			fmt.Printf("oauthConf.Exchange() failed with '%s'\n", err)
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		ghuser := getGHUser(token)
-
-		log.Printf("Logged in as GitHub user: %s\n", *ghuser.Login)
-
-		sessionID := newSessionID()
-		tokenString, _ := tokenToJSON(token)
-
-		newSession := &Session{
-			ID:          sessionID,
-			Username:    *ghuser.Login,
-			AccessToken: tokenString,
-		}
-
-		addSession(newSession)
-
-		user := &User{
-			Username: *ghuser.Login,
-			Repos:    []int{},
-		}
-
-		addUser(user)
-
-		c.SetCookie("use_ghpages", sessionID, 2*365*24*60*60, "/", "", false, true)
-
-		c.Redirect(http.StatusTemporaryRedirect, "/")
-	})
-
-	router.GET("/repos", func(c *gin.Context) {
-		sessionUncast, ok := c.Keys["session"]
-		if ok != true {
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		session, ok := sessionUncast.(Session)
-		if ok != true {
-			fmt.Println("Error: Cant cast to Session")
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		token, _ := tokenFromJSON(session.AccessToken)
-
-		repos, resp := getGHUserRepos(token, 1)
-
-		var areMore bool
-		if resp != nil {
-			areMore = resp.NextPage != 0
-		}
-
-		user := User{}
-		err = users.Find(bson.M{"_id": session.Username}).One(&user)
-
-		fmt.Println("user: ", user)
-
-		addedRepos := make(map[int]bool)
-		for _, r := range user.Repos {
-			addedRepos[r] = true
-		}
-
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"user":       user,
-			"repos":      repos,
-			"addedRepos": addedRepos,
-			"areMore":    areMore,
-			"content":    "REPOS",
-		})
-	})
-
-	router.GET("/only-repos", func(c *gin.Context) {
-		sessionUncast, ok := c.Keys["session"]
-		if ok != true {
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		session, ok := sessionUncast.(Session)
-		if ok != true {
-			fmt.Println("Error: Cant cast to Session")
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		token, _ := tokenFromJSON(session.AccessToken)
-
-		page := c.Query("page")
-		pageInt, err := strconv.Atoi(page)
-		if err != nil {
-			log.Println("could not convert page")
-		}
-		if pageInt == 0 {
-			pageInt = 1
-		}
-
-		repos, resp := getGHUserRepos(token, pageInt)
-
-		c.Header("HG-PG-Next-Page", strconv.Itoa(resp.NextPage))
-
-		user := User{}
-		err = users.Find(bson.M{"_id": session.Username}).One(&user)
-
-		addedRepos := make(map[int]bool)
-		for _, r := range user.Repos {
-			addedRepos[r] = true
-		}
-
-		c.HTML(http.StatusOK, "repolist.tmpl", gin.H{
-			"repos":      repos,
-			"addedRepos": addedRepos,
-		})
-	})
-
-	router.POST("/add", func(c *gin.Context) {
-		sessionUncast, ok := c.Keys["session"]
-		if ok != true {
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		session, ok := sessionUncast.(Session)
-		if ok != true {
-			fmt.Println("Error: Cant cast to Session")
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		token, _ := tokenFromJSON(session.AccessToken)
-
-		fullname := c.Query("fullname")
-		id, _ := strconv.Atoi(c.Query("id"))
-
-		repo := &Repo{
-			ID:          id,
-			Fullname:    fullname,
-			Username:    session.Username,
-			AccessToken: token.AccessToken,
-		}
-		err = addRepo(repo, &session, token)
-
-		if err != nil {
-			log.Println(err.Error(), fullname)
-			c.JSON(http.StatusNotAcceptable, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, nil)
-	})
-
-	router.GET("/edit/:id/:owner/:repo", func(c *gin.Context) {
-		sessionUncast, ok := c.Keys["session"]
-		if ok != true {
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		session, ok := sessionUncast.(Session)
-		if ok != true {
-			fmt.Println("Error: Cant cast to Session")
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		user := User{}
-		err = users.Find(bson.M{"_id": session.Username}).One(&user)
-
-		id, _ := strconv.Atoi(c.Param("id"))
-
-		repo := Repo{}
-		repos.FindId(id).One(&repo)
-
-		buildOutPut := strings.Split(repo.LastBuildOutput, "\n")
-
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"user":        user,
-			"id":          id,
-			"repo":        repo,
-			"buildOutPut": buildOutPut,
-			"content":     "BUILDS",
-		})
-	})
-
-	router.POST("/remove", func(c *gin.Context) {
-		sessionUncast, ok := c.Keys["session"]
-		if ok != true {
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		session, ok := sessionUncast.(Session)
-		if ok != true {
-			fmt.Println("Error: Cant cast to Session")
-			c.Redirect(http.StatusTemporaryRedirect, "/")
-			return
-		}
-
-		token, _ := tokenFromJSON(session.AccessToken)
-
-		fullname := c.Query("fullname")
-		id, _ := strconv.Atoi(c.Query("id"))
-
-		repo := &Repo{
-			ID:       id,
-			Fullname: fullname,
-		}
-		err = removeRepo(repo, &session, token)
-
-		if err != nil {
-			log.Println(err.Error(), fullname)
-			c.JSON(http.StatusNotAcceptable, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, nil)
-	})
+	router.GET("/", index)
+	router.GET("/repos", listRepos)
+	router.GET("/only-repos", onlyRepos)
+	router.POST("/add", addNewRepo)
+	router.GET("/view/:id/:owner/:repo", viewRepo)
+	router.POST("/remove", removeAddedRepo)
 
 	router.Run(":8080")
 }
@@ -544,27 +303,4 @@ func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
 	}
 
 	return &token, nil
-}
-
-func sessionMiddleware(c *gin.Context) {
-	sessionID, err := c.Cookie("use_ghpages")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	result := Session{}
-	err = sessions.Find(bson.M{"_id": sessionID}).One(&result)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Println(result)
-
-	if c.Keys == nil {
-		c.Keys = make(map[string]interface{})
-	}
-	c.Keys["session"] = result
-	c.Next()
 }
