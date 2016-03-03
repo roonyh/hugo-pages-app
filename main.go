@@ -37,6 +37,12 @@ type User struct {
 	Repos    []int
 }
 
+// Account is a account
+type Account struct {
+	Username string `bson:"_id,omitempty"`
+	Repos    []int
+}
+
 // Repo is a github repo
 type Repo struct {
 	ID              int `bson:"_id,omitempty"`
@@ -52,6 +58,7 @@ var dbSession *mgo.Session
 var sessions *mgo.Collection
 var users *mgo.Collection
 var repos *mgo.Collection
+var accounts *mgo.Collection
 var config *Configuration
 
 func main() {
@@ -74,6 +81,7 @@ func main() {
 	sessions = dbSession.DB("hugo-pages").C("sessions")
 	users = dbSession.DB("hugo-pages").C("users")
 	repos = dbSession.DB("hugo-pages").C("repos")
+	accounts = dbSession.DB("hugo-pages").C("accounts")
 
 	router := gin.Default()
 	router.Use(sessionMiddleware)
@@ -91,7 +99,7 @@ func main() {
 	router.GET("/callback", githubCallback)
 
 	router.GET("/", index)
-	router.GET("/repos", listRepos)
+	router.GET("/add-project", listRepos)
 	router.GET("/only-repos", onlyRepos)
 	router.POST("/add", addNewRepo)
 	router.GET("/view/:id/:owner/:repo", viewRepo)
@@ -160,7 +168,10 @@ func addRepo(repo *Repo, session *Session, token *oauth2.Token) error {
 			"repos": repo.ID,
 		},
 	}
-	err = users.UpdateId(session.Username, change)
+
+	ownerAndRepo := strings.Split(repo.Fullname, "/")
+
+	_, err = accounts.UpsertId(ownerAndRepo[0], change)
 	if err != nil {
 		return err
 	}

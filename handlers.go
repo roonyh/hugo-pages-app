@@ -87,18 +87,10 @@ func listRepos(c *gin.Context) {
 		areMore = resp.NextPage != 0
 	}
 
-	user := User{}
-	_ = users.Find(bson.M{"_id": session.Username}).One(&user)
-
-	fmt.Println("user: ", user)
-
-	addedRepos := make(map[int]bool)
-	for _, r := range user.Repos {
-		addedRepos[r] = true
-	}
+	_, addedRepos := getReposWithOrgs(repos)
 
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
-		"user":       user,
+		"user":       session,
 		"repos":      repos,
 		"addedRepos": addedRepos,
 		"areMore":    areMore,
@@ -124,13 +116,7 @@ func onlyRepos(c *gin.Context) {
 
 	c.Header("HG-PG-Next-Page", strconv.Itoa(resp.NextPage))
 
-	user := User{}
-	err = users.Find(bson.M{"_id": session.Username}).One(&user)
-
-	addedRepos := make(map[int]bool)
-	for _, r := range user.Repos {
-		addedRepos[r] = true
-	}
+	_, addedRepos := getReposWithOrgs(repos)
 
 	c.HTML(http.StatusOK, "repolist.tmpl", gin.H{
 		"repos":      repos,
