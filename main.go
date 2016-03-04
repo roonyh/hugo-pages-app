@@ -102,8 +102,9 @@ func main() {
 	router.GET("/add-project", listRepos)
 	router.GET("/only-repos", onlyRepos)
 	router.POST("/add", addNewRepo)
-	router.GET("/view/:id/:owner/:repo", viewRepo)
+	//router.GET("/builds/:id/:owner/:repo", viewRepo)
 	router.POST("/remove", removeAddedRepo)
+	router.GET("/builds/*fullname", viewBuilds)
 
 	router.Run(":8080")
 }
@@ -138,10 +139,8 @@ func addRepo(repo *Repo, session *Session, token *oauth2.Token) error {
 	err := repos.Insert(repo)
 	if err != nil {
 		if mgo.IsDup(err) {
-			fmt.Println("---> duuup")
+			log.Println("Duplicate:", repo.Fullname)
 			// We already have a hook added for this repo
-			// For Organization repos only the user who added the repo to build
-			// will be shown that its already added. :(
 			currentRepo := Repo{}
 			err := repos.FindId(repo.ID).One(&currentRepo)
 			if err != nil {

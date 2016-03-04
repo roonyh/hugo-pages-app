@@ -171,9 +171,53 @@ func viewRepo(c *gin.Context) {
 	buildOutPut := strings.Split(repo.LastBuildOutput, "\n")
 
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
-		"user":        user,
-		"id":          id,
-		"repo":        repo,
+		"user":        session,
+		"reposToShow": []Repo{},
+		"mainRepo":    repo,
+		"buildOutPut": buildOutPut,
+		"content":     "BUILDS",
+	})
+}
+
+// /builds/*fullname
+func viewBuilds(c *gin.Context) {
+	session := getSession(c)
+	token, _ := tokenFromJSON(session.AccessToken)
+
+	fullname := c.Param("fullname")
+
+	fmt.Println(fullname)
+
+	ghrepos, resp := getGHUserRepos(token, 1)
+
+	var areMore bool
+	if resp != nil {
+		areMore = resp.NextPage != 0
+	}
+
+	_, addedRepos := getReposWithOrgs(ghrepos)
+
+	reposToShow := []Repo{}
+	var mainRepo Repo
+
+	for idx := range addedRepos {
+		repo := Repo{}
+		repos.FindId(idx).One(&repo)
+		if "/"+repo.Fullname == fullname {
+			mainRepo = repo
+		}
+
+		reposToShow = append(reposToShow, repo)
+	}
+
+	var buildOutPut []string
+	buildOutPut = strings.Split(mainRepo.LastBuildOutput, "\n")
+
+	c.HTML(http.StatusOK, "index.tmpl", gin.H{
+		"user":        session,
+		"areMore":     areMore,
+		"reposToShow": reposToShow,
+		"mainRepo":    mainRepo,
 		"buildOutPut": buildOutPut,
 		"content":     "BUILDS",
 	})

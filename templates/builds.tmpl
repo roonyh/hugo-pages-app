@@ -3,12 +3,21 @@
 <div class="container">
   <div class="row">
     <div id="filters" class="four columns">
-      <h5>{{.repo.Fullname}}</h5>
+      <h5>{{.mainRepo.Fullname}}</h5>
       <div id="buildinfo-container">
-        <label>Last Build</label><span id="status" class="{{.repo.LastBuildStatus}}">{{.repo.LastBuildStatus}}<span>
+        <label>Last Build</label><span id="status" class="{{.mainRepo.LastBuildStatus}}">{{.repo.LastBuildStatus}}<span>
       </div>
       <br>
-      <button onclick="removeBtnOc(this)" class="danger" data-fn="{{.repo.Fullname}}" data-id="{{.id}}" type="button">Remove</button>
+      <button onclick="removeBtnOc(this)" class="danger" data-fn="{{.mainRepo.Fullname}}" data-id="{{.mainRepo.ID}}" type="button">Remove</button>
+      <br>
+      {{if gt (len .reposToShow) 1}}
+      <div id="other-builds">
+        All projects: <br>
+        {{range .reposToShow}}
+          <a href="/builds/{{.Fullname}}">{{.Fullname}}</a><br>
+        {{end}}
+      </div>
+      {{end}}
     </div>
     <div id="build" class="eight columns">
       <code>
