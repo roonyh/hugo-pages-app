@@ -210,8 +210,19 @@ func viewBuilds(c *gin.Context) {
 		reposToShow = append(reposToShow, repo)
 	}
 
+	fmt.Println(reposToShow)
+	fmt.Println(len(fullname))
+	fmt.Println(len(reposToShow))
+	if len(fullname) == 1 && len(reposToShow) > 0 {
+		fmt.Println("k k k")
+		// this request came as /builds/
+		mainRepo = reposToShow[0]
+	}
+
 	var buildOutPut []string
 	buildOutPut = strings.Split(mainRepo.LastBuildOutput, "\n")
+
+	fmt.Println(buildOutPut)
 
 	c.HTML(http.StatusOK, "index.tmpl", gin.H{
 		"user":        session,
@@ -219,7 +230,66 @@ func viewBuilds(c *gin.Context) {
 		"reposToShow": reposToShow,
 		"mainRepo":    mainRepo,
 		"buildOutPut": buildOutPut,
+		"fullname":    fullname,
 		"content":     "BUILDS",
+	})
+}
+
+// /only-builds
+func onlyBuilds(c *gin.Context) {
+	session := getSession(c)
+	token, _ := tokenFromJSON(session.AccessToken)
+
+	page := c.Query("page")
+	fullname := c.Query("main")
+	fmt.Println(fullname)
+	pageInt, err := strconv.Atoi(page)
+	if err != nil {
+		log.Println("could not convert page")
+	}
+	if pageInt == 0 {
+		pageInt = 1
+	}
+
+	ghrepos, resp := getGHUserRepos(token, pageInt)
+
+	c.Header("HG-PG-Next-Page", strconv.Itoa(resp.NextPage))
+
+	_, addedRepos := getReposWithOrgs(ghrepos)
+
+	reposToShow := []Repo{}
+	var mainRepo Repo
+	var mainRepoFound bool
+
+	for idx := range addedRepos {
+		repo := Repo{}
+		repos.FindId(idx).One(&repo)
+		fmt.Println(fullname, repo.Fullname)
+		if "/"+repo.Fullname == fullname {
+			mainRepo = repo
+			mainRepoFound = true
+		}
+
+		reposToShow = append(reposToShow, repo)
+	}
+
+	if mainRepoFound {
+		fmt.Println("bbbbbb")
+		var buildOutPut []string
+		buildOutPut = strings.Split(mainRepo.LastBuildOutput, "\n")
+
+		c.HTML(http.StatusOK, "build-details.tmpl", gin.H{
+			"reposToShow": reposToShow,
+			"mainRepo":    mainRepo,
+			"buildOutPut": buildOutPut,
+		})
+
+		return
+	}
+
+	c.HTML(http.StatusOK, "build-list.tmpl", gin.H{
+		"reposToShow": reposToShow,
+		"mainRepo":    mainRepo,
 	})
 }
 

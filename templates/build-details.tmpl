@@ -1,0 +1,28 @@
+{{define "BUILDSDETAILS"}}
+<div id="filters" class="four columns">
+  <div id="build-details">
+    <h5>{{.mainRepo.Fullname}}</h5>
+    <div id="buildinfo-container">
+      <label>Last Build</label><span id="status" class="{{.mainRepo.LastBuildStatus}}">{{.mainRepo.LastBuildStatus}}<span>
+    </div>
+    <br>
+    <button onclick="removeBtnOc(this)" class="danger" data-fn="{{.mainRepo.Fullname}}" data-id="{{.mainRepo.ID}}" type="button">Remove</button>
+    <br>
+  </div>
+  <br>
+  <div id="other-builds">
+    All projects: <br>
+  {{template "BUILDSLIST" .}}
+  </div>
+</div>
+<div id="build" class="eight columns">
+  <code>
+    {{range .buildOutPut}}
+      > {{.}} <br>
+    {{end}}
+  </code>
+</div>
+<br>
+{{end}}
+
+{{template "BUILDSDETAILS" .}}

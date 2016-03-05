@@ -1,0 +1,6 @@
+{{define "BUILDSLIST"}}
+  {{range .reposToShow}}
+    <a href="/builds/{{.Fullname}}">{{.Fullname}}</a><br>
+  {{end}}
+{{end}}
+{{template "BUILDSLIST" .}}

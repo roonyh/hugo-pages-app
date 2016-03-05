@@ -2,30 +2,7 @@
 <br>
 <div class="container">
   <div class="row">
-    <div id="filters" class="four columns">
-      <h5>{{.mainRepo.Fullname}}</h5>
-      <div id="buildinfo-container">
-        <label>Last Build</label><span id="status" class="{{.mainRepo.LastBuildStatus}}">{{.repo.LastBuildStatus}}<span>
-      </div>
-      <br>
-      <button onclick="removeBtnOc(this)" class="danger" data-fn="{{.mainRepo.Fullname}}" data-id="{{.mainRepo.ID}}" type="button">Remove</button>
-      <br>
-      {{if gt (len .reposToShow) 1}}
-      <div id="other-builds">
-        All projects: <br>
-        {{range .reposToShow}}
-          <a href="/builds/{{.Fullname}}">{{.Fullname}}</a><br>
-        {{end}}
-      </div>
-      {{end}}
-    </div>
-    <div id="build" class="eight columns">
-      <code>
-        {{range .buildOutPut}}
-          > {{.}} <br>
-        {{end}}
-      </code>
-    </div>
+    {{template "BUILDSDETAILS" .}}
   </div>
 </div>
 <script>
@@ -58,5 +35,44 @@
     req.open(method, url);
     req.send();
   }
+
+  {{if eq .areMore true}}
+
+  /* more repos are left to be checked */
+  var mainRepo = {{if .mainRepo.ID}}0{{else}}{{.fullname}}{{end}}
+  getBuilds(2);
+
+  function getBuilds(page){
+    makeRequest("/only-builds?page=" + page + "&main=" + mainRepo, "GET", function(req){
+      var nextPage = req.getResponseHeader("HG-PG-Next-Page");
+      var htmldata = req.response;
+
+      var tempel = document.createElement("div");
+      tempel.innerHTML = htmldata;
+      console.log(htmldata);
+
+      if(tempel.querySelector("#build-details")){
+        var bd = document.getElementById("build-details");
+        bd.innerHTML = tempel.querySelector("#build-details").innerHTML;
+        var ob = document.getElementById("other-builds");
+        tempob = tempel.querySelector("#other-builds").innerHTML;
+        while(tempob.firstChild) {
+          ob.appendChild(tempob.firstChild);
+        }
+        var b = document.getElementById("build");
+        b.innerHTML = tempel.querySelector("#build").innerHTML;
+      } else {
+        var element = document.getElementById("other-builds");
+        while(tempel.firstChild) {
+          element.appendChild(tempel.firstChild);
+        }
+      }
+
+      if(nextPage !== "0"){
+        getBuilds(nextPage);
+      }
+    })
+  }
+  {{end}}
 </script>
 {{end}}

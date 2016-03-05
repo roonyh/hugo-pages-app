@@ -105,6 +105,7 @@ func main() {
 	//router.GET("/builds/:id/:owner/:repo", viewRepo)
 	router.POST("/remove", removeAddedRepo)
 	router.GET("/builds/*fullname", viewBuilds)
+	router.GET("/only-builds", onlyBuilds)
 
 	router.Run(":8080")
 }

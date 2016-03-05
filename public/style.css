@@ -99,7 +99,15 @@ a:hover{
 button.danger{
 	background-color: #E0BCBC;
 }
-
+#other-builds{
+	padding: 10px;
+	background-color: #D0D0F9;
+}
+#build-details{
+  border-color: #D0D0F9;
+  border-style: solid;
+  padding: 10px;
+}
 /* Larger than phone */
 @media (min-width: 600px) {
 	.navbar {
