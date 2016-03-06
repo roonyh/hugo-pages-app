@@ -106,6 +106,7 @@ func main() {
 	router.POST("/remove", removeAddedRepo)
 	router.GET("/builds/*fullname", viewBuilds)
 	router.GET("/only-builds", onlyBuilds)
+	router.POST("/build-info", buildInfo)
 
 	router.Run(":8080")
 }
@@ -213,6 +214,12 @@ func removeRepo(repo *Repo, session *Session, token *oauth2.Token) error {
 		},
 	}
 	err = users.UpdateId(session.Username, change)
+	if err != nil {
+		return err
+	}
+	ownerAndRepo := strings.Split(repo.Fullname, "/")
+
+	err = accounts.UpdateId(ownerAndRepo[0], change)
 	if err != nil {
 		return err
 	}

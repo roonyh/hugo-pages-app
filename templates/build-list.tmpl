@@ -1,6 +1,7 @@
 {{define "BUILDSLIST"}}
   {{range .reposToShow}}
-    <a href="/builds/{{.Fullname}}">{{.Fullname}}</a><br>
+    <a href="/#" onclick="return buildBtnOc(this)" data-fn="{{.Fullname}}" data-id="{{.ID}}">{{.Fullname}}</a>
+    <br>
   {{end}}
 {{end}}
 {{template "BUILDSLIST" .}}

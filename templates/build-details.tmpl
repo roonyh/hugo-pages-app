@@ -1,13 +1,15 @@
 {{define "BUILDSDETAILS"}}
 <div id="filters" class="four columns">
-  <div id="build-details">
-    <h5>{{.mainRepo.Fullname}}</h5>
-    <div id="buildinfo-container">
-      <label>Last Build</label><span id="status" class="{{.mainRepo.LastBuildStatus}}">{{.mainRepo.LastBuildStatus}}<span>
+  <div id="build-details-container">
+    <div id="build-details">
+      <h5>{{.mainRepo.Fullname}}</h5>
+      <div id="buildinfo-container">
+        <label>Last Build</label><span id="status" class="{{.mainRepo.LastBuildStatus}}">{{.mainRepo.LastBuildStatus}}<span>
+      </div>
+      <br>
+      <button onclick="removeBtnOc(this)" class="danger" data-fn="{{.mainRepo.Fullname}}" data-id="{{.mainRepo.ID}}" type="button">Remove</button>
+      <br>
     </div>
-    <br>
-    <button onclick="removeBtnOc(this)" class="danger" data-fn="{{.mainRepo.Fullname}}" data-id="{{.mainRepo.ID}}" type="button">Remove</button>
-    <br>
   </div>
   <br>
   <div id="other-builds">

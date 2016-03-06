@@ -23,6 +23,48 @@
     makeRequest("/remove?id=" + btn.dataset.id + '&fullname=' + btn.dataset.fn, "POST", callback);
   }
 
+  function buildBtnOc(btn) {
+    /* on click handler for repos not added */
+    history.pushState({id: btn.dataset.id, fullname: btn.dataset.fn}, "", window.location.origin + "/builds/"+btn.dataset.fn);
+
+    return _updateMainBuild(btn.dataset.id)
+  }
+
+  function _updateMainBuild(id){
+    document.getElementById("build").classList.add('loading');
+    document.getElementById("build-details-container").classList.add('loading');
+    document.querySelector("#build code").style.visibility = "hidden";
+    document.querySelector("#build-details").style.visibility = "hidden";
+
+    var callback = function(req) {
+      if(req.status == 200){
+        var tempel = document.createElement("div");
+        tempel.innerHTML = req.response;
+        var bd = document.getElementById("build-details");
+        bd.innerHTML = tempel.querySelector("#build-details").innerHTML;
+
+        var b = document.getElementById("build");
+        console.log(tempel.querySelector("#build").innerHTML);
+        b.innerHTML = tempel.querySelector("#build").innerHTML;
+      }
+      else {
+        alert('Could not get info');
+      }
+      document.querySelector("#build code").style.visibility = "visible";
+      document.querySelector("#filters #build-details").style.visibility = "visible";
+      document.getElementById("build").classList.remove('loading');
+      document.getElementById("filters").classList.remove('loading');
+
+    }
+
+    makeRequest("/build-info?id=" + id, "POST", callback);
+    return false;
+  }
+
+  window.onpopstate = function(event) {
+    _updateMainBuild(event.state.id)
+  };
+
   function makeRequest(url, method, callback) {
     var req = new XMLHttpRequest();
 

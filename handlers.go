@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/mgo.v2/bson"
-
 	"golang.org/x/oauth2"
 
 	"github.com/gin-gonic/gin"
@@ -151,31 +149,18 @@ func addNewRepo(c *gin.Context) {
 	c.JSON(http.StatusOK, nil)
 }
 
-// /view
-func viewRepo(c *gin.Context) {
-	session := getSession(c)
-
-	user := User{}
-	err := users.Find(bson.M{"_id": session.Username}).One(&user)
-	if err != nil {
-		fmt.Println("Error: Cant find user")
-		c.Redirect(http.StatusTemporaryRedirect, "/")
-		return
-	}
-
-	id, _ := strconv.Atoi(c.Param("id"))
+// /builds-info
+func buildInfo(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Query("id"))
 
 	repo := Repo{}
 	repos.FindId(id).One(&repo)
 
 	buildOutPut := strings.Split(repo.LastBuildOutput, "\n")
 
-	c.HTML(http.StatusOK, "index.tmpl", gin.H{
-		"user":        session,
-		"reposToShow": []Repo{},
+	c.HTML(http.StatusOK, "build-details.tmpl", gin.H{
 		"mainRepo":    repo,
 		"buildOutPut": buildOutPut,
-		"content":     "BUILDS",
 	})
 }
 
@@ -210,11 +195,7 @@ func viewBuilds(c *gin.Context) {
 		reposToShow = append(reposToShow, repo)
 	}
 
-	fmt.Println(reposToShow)
-	fmt.Println(len(fullname))
-	fmt.Println(len(reposToShow))
 	if len(fullname) == 1 && len(reposToShow) > 0 {
-		fmt.Println("k k k")
 		// this request came as /builds/
 		mainRepo = reposToShow[0]
 	}
