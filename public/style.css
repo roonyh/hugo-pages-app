@@ -108,6 +108,20 @@ button.danger{
   border-style: solid;
   padding: 10px;
 }
+.navbar-item input[type="submit"]{
+	height: 60px;
+	line-height: 60px;
+	padding: 0;
+	text-transform: none;
+	border: none;
+	color: #D0D0F9;
+	font-size: 20px;
+	letter-spacing: 1px;
+}
+.navbar-item form{
+	height: 60px;
+	margin: 0;
+}
 /* Larger than phone */
 @media (min-width: 600px) {
 	.navbar {
@@ -130,6 +144,7 @@ button.danger{
 		text-align:center;
 		font-size:24px;
 	}
+
 }
 
 /* Larger than Tab */

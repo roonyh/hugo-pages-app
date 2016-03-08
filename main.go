@@ -3,11 +3,13 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -26,9 +28,10 @@ var (
 
 // Session is a session
 type Session struct {
-	ID          string `bson:"_id,omitempty"`
-	Username    string
-	AccessToken string
+	ID                 string `bson:"_id,omitempty"`
+	Username           string
+	EncAccessToken     []byte
+	EncAccessTokenOnly []byte
 }
 
 // User is a user
@@ -48,7 +51,7 @@ type Repo struct {
 	ID              int `bson:"_id,omitempty"`
 	Fullname        string
 	Username        string
-	AccessToken     string
+	EncAccessToken  []byte
 	HookID          int
 	LastBuildOutput string
 	LastBuildStatus string
@@ -60,10 +63,17 @@ var users *mgo.Collection
 var repos *mgo.Collection
 var accounts *mgo.Collection
 var config *Configuration
+var secretKey []byte
 
 func main() {
 	config = loadConfig()
 	config.print()
+
+	var err error
+	secretKey, err = hex.DecodeString(config.SecretKey)
+	if err != nil {
+		panic(err)
+	}
 
 	oauthConf = &oauth2.Config{
 		ClientID:     config.ClientID,
@@ -86,6 +96,15 @@ func main() {
 	router := gin.Default()
 	router.Use(sessionMiddleware)
 
+	router.NoRoute(func(c *gin.Context) {
+		session := getSession(c)
+
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{
+			"user":    session,
+			"content": "404",
+		})
+	})
+
 	router.Static("/public", "./public")
 
 	t := template.Must(template.New("").Funcs(template.FuncMap{
@@ -96,17 +115,22 @@ func main() {
 
 	/* Request handlers */
 	router.GET("/login", login)
+	router.POST("/logout", logout)
 	router.GET("/callback", githubCallback)
 
 	router.GET("/", index)
-	router.GET("/add-project", listRepos)
-	router.GET("/only-repos", onlyRepos)
-	router.POST("/add", addNewRepo)
-	//router.GET("/builds/:id/:owner/:repo", viewRepo)
-	router.POST("/remove", removeAddedRepo)
-	router.GET("/builds/*fullname", viewBuilds)
-	router.GET("/only-builds", onlyBuilds)
-	router.POST("/build-info", buildInfo)
+	router.POST("/", index)
+
+	authorized := router.Group("/")
+	authorized.Use(authorizationMiddleware)
+
+	authorized.GET("/add-project", listRepos)
+	authorized.GET("/only-repos", onlyRepos)
+	authorized.POST("/add", addNewRepo)
+	authorized.POST("/remove", removeAddedRepo)
+	authorized.GET("/builds/*fullname", viewBuilds)
+	authorized.GET("/only-builds", onlyBuilds)
+	authorized.POST("/build-info", buildInfo)
 
 	router.Run(":8080")
 }

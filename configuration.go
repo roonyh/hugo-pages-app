@@ -13,6 +13,7 @@ type Configuration struct {
 	HookHandler  string
 	ClientID     string
 	ClientSecret string
+	SecretKey    string
 }
 
 func loadConfig() *Configuration {

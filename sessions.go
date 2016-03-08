@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,6 +22,17 @@ func sessionMiddleware(c *gin.Context) {
 	}
 
 	c.Set("session", result)
+}
+
+func authorizationMiddleware(c *gin.Context) {
+	_, ok := c.Get("session")
+	fmt.Println(ok)
+	if !ok {
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{
+			"content": "404",
+		})
+		c.Abort()
+	}
 }
 
 func getSession(c *gin.Context) *Session {

@@ -14,9 +14,13 @@
 	<nav class="navbar">
 		 <div class="container">
 			 <ul class="navbar-list">
-				 <li class="navbar-item navbar-logo"><a class="navbar-link" href="/"><strong>Hugo Pages</strong></a></li>
+			 	 <li class="navbar-item navbar-logo"><a class="navbar-link" href="/"><strong>Hugo Pages</strong></a></li>
 			   {{if .user}}
-				 <li class="navbar-item"><a class="navbar-link" href="/#logout">Logout</a></li>
+				 <li class="navbar-item">
+				 	  <form action="/logout" method="post">
+						<input type="submit" value="Logout"></input>
+					 </form>
+				 </li>
 				 <li class="navbar-item navbar-separator">|</li>
 				 <li class="navbar-item"><a class="navbar-link" href="/add-project">Add Project</a></li>
 				 <li class="navbar-item navbar-separator">|</li>
@@ -34,6 +38,8 @@
 			{{template "REPOS" .}}
 		{{else if eq .content "BUILDS"}}
 			{{template "BUILDS" .}}
+		{{else if eq .content "404"}}
+			{{template "404" .}}
 		{{else}}
 			Thats an error
 		{{end}}

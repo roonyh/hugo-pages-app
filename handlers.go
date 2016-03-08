@@ -28,6 +28,13 @@ func login(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
+// /logout
+func logout(c *gin.Context) {
+	session := getSession(c)
+	sessions.RemoveId(session.ID)
+	c.Redirect(http.StatusTemporaryRedirect, "/")
+}
+
 // /callback
 func githubCallback(c *gin.Context) {
 	state := c.Query("state")
@@ -53,10 +60,25 @@ func githubCallback(c *gin.Context) {
 	sessionID := newSessionID()
 	tokenString, _ := tokenToJSON(token)
 
+	encTokenString, err := encrypt([]byte(tokenString))
+	if err != nil {
+		fmt.Printf("Error when processing token '%s'\n", err)
+		c.Redirect(http.StatusTemporaryRedirect, "/")
+		return
+	}
+
+	encTokenStringOnly, err := encrypt([]byte(token.AccessToken))
+	if err != nil {
+		fmt.Printf("Error when processing token '%s'\n", err)
+		c.Redirect(http.StatusTemporaryRedirect, "/")
+		return
+	}
+
 	newSession := &Session{
-		ID:          sessionID,
-		Username:    *ghuser.Login,
-		AccessToken: tokenString,
+		ID:                 sessionID,
+		Username:           *ghuser.Login,
+		EncAccessToken:     encTokenString,
+		EncAccessTokenOnly: encTokenStringOnly,
 	}
 
 	addSession(newSession)
@@ -76,7 +98,16 @@ func githubCallback(c *gin.Context) {
 // /repos
 func listRepos(c *gin.Context) {
 	session := getSession(c)
-	token, _ := tokenFromJSON(session.AccessToken)
+	tokenString, err := decrypt(session.EncAccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	token, _ := tokenFromJSON(string(tokenString))
 
 	repos, resp := getGHUserRepos(token, 1)
 
@@ -99,7 +130,16 @@ func listRepos(c *gin.Context) {
 // /only-repos
 func onlyRepos(c *gin.Context) {
 	session := getSession(c)
-	token, _ := tokenFromJSON(session.AccessToken)
+	tokenString, err := decrypt(session.EncAccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	token, _ := tokenFromJSON(string(tokenString))
 
 	page := c.Query("page")
 	pageInt, err := strconv.Atoi(page)
@@ -125,19 +165,28 @@ func onlyRepos(c *gin.Context) {
 // /add
 func addNewRepo(c *gin.Context) {
 	session := getSession(c)
-	token, _ := tokenFromJSON(session.AccessToken)
+	tokenString, err := decrypt(session.EncAccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	token, _ := tokenFromJSON(string(tokenString))
 
 	fullname := c.Query("fullname")
 	id, _ := strconv.Atoi(c.Query("id"))
 
 	repo := &Repo{
-		ID:          id,
-		Fullname:    fullname,
-		Username:    session.Username,
-		AccessToken: token.AccessToken,
+		ID:             id,
+		Fullname:       fullname,
+		Username:       session.Username,
+		EncAccessToken: session.EncAccessTokenOnly,
 	}
 
-	err := addRepo(repo, session, token)
+	err = addRepo(repo, session, token)
 	if err != nil {
 		log.Println(err.Error(), fullname)
 		c.JSON(http.StatusNotAcceptable, gin.H{
@@ -167,8 +216,16 @@ func buildInfo(c *gin.Context) {
 // /builds/*fullname
 func viewBuilds(c *gin.Context) {
 	session := getSession(c)
-	token, _ := tokenFromJSON(session.AccessToken)
+	tokenString, err := decrypt(session.EncAccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
+	token, _ := tokenFromJSON(string(tokenString))
 	fullname := c.Param("fullname")
 
 	fmt.Println(fullname)
@@ -219,7 +276,16 @@ func viewBuilds(c *gin.Context) {
 // /only-builds
 func onlyBuilds(c *gin.Context) {
 	session := getSession(c)
-	token, _ := tokenFromJSON(session.AccessToken)
+	tokenString, err := decrypt(session.EncAccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	token, _ := tokenFromJSON(string(tokenString))
 
 	page := c.Query("page")
 	fullname := c.Query("main")
@@ -277,7 +343,16 @@ func onlyBuilds(c *gin.Context) {
 // /remove
 func removeAddedRepo(c *gin.Context) {
 	session := getSession(c)
-	token, _ := tokenFromJSON(session.AccessToken)
+	tokenString, err := decrypt(session.EncAccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	token, _ := tokenFromJSON(string(tokenString))
 
 	fullname := c.Query("fullname")
 	id, _ := strconv.Atoi(c.Query("id"))
@@ -287,7 +362,7 @@ func removeAddedRepo(c *gin.Context) {
 		Fullname: fullname,
 	}
 
-	err := removeRepo(repo, session, token)
+	err = removeRepo(repo, session, token)
 	if err != nil {
 		log.Println(err.Error(), fullname)
 		c.JSON(http.StatusNotAcceptable, gin.H{

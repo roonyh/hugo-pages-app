@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"errors"
 	"log"
 
 	"github.com/google/go-github/github"
@@ -37,4 +40,46 @@ func getReposWithOrgs(ghrepos []github.Repository) (map[string]repoMap, repoMap)
 	}
 
 	return accountsMap, allRepoMap
+}
+
+func encrypt(text []byte) (ciphertext []byte, err error) {
+
+	var block cipher.Block
+
+	if block, err = aes.NewCipher(secretKey); err != nil {
+		return nil, err
+	}
+
+	ivSource := []byte("abcdef1234567890")
+	iv := ivSource[:aes.BlockSize] // const BlockSize = 16
+
+	cfb := cipher.NewCFBEncrypter(block, iv)
+
+	ciphertext = make([]byte, len(text))
+	cfb.XORKeyStream(ciphertext, text)
+
+	return
+}
+
+func decrypt(ciphertext []byte) (plaintext []byte, err error) {
+
+	var block cipher.Block
+
+	if block, err = aes.NewCipher(secretKey); err != nil {
+		return
+	}
+
+	if len(ciphertext) < aes.BlockSize {
+		err = errors.New("ciphertext too short")
+		return
+	}
+
+	iv := []byte("abcdef1234567890")
+
+	cfb := cipher.NewCFBDecrypter(block, iv)
+	cfb.XORKeyStream(ciphertext, ciphertext)
+
+	plaintext = ciphertext
+
+	return
 }
