@@ -24,6 +24,8 @@ func index(c *gin.Context) {
 
 // /login
 func login(c *gin.Context) {
+	oauthStateString := newSessionID()
+	c.SetCookie("oauth_state", oauthStateString, 3600, "/", "", false, true)
 	url := oauthConf.AuthCodeURL(oauthStateString, oauth2.AccessTypeOnline)
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
@@ -38,8 +40,9 @@ func logout(c *gin.Context) {
 // /callback
 func githubCallback(c *gin.Context) {
 	state := c.Query("state")
-	if state != oauthStateString {
-		fmt.Printf("invalid oauth state, expected '%s', got '%s'\n", oauthStateString, state)
+	oauthState, err := c.Cookie("oauth_state")
+	if state != oauthState {
+		fmt.Printf("invalid oauth state, expected '%s', got '%s'\n", oauthState, state)
 		c.Redirect(http.StatusTemporaryRedirect, "/")
 		return
 	}
