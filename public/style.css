@@ -91,6 +91,7 @@ a:hover{
 #build code{
 	display: block;
 	padding: 10px;
+	white-space: normal;
 }
 #buildinfo-container{
 	padding: 10px;
@@ -107,6 +108,10 @@ button.danger{
   border-color: #D0D0F9;
   border-style: solid;
   padding: 10px;
+}
+#build-details h5{
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .navbar-item input[type="submit"]{
 	height: 60px;

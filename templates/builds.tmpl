@@ -7,12 +7,12 @@
 </div>
 <script>
   function removeBtnOc(btn) {
-    btn.classList.add('loading')
-    btn.innerHTML = "";
+    btn.classList.add('loading');
+    btn.innerHTML = '';
 
     var callback = function(req) {
       if(req.status == 200){
-        btn.innerHTML = "Add Back";
+        btn.innerHTML = 'Add Back';
       }
       else {
         alert('Could not remove')
@@ -20,7 +20,7 @@
       btn.classList.remove('loading')
     }
 
-    makeRequest("/remove?id=" + btn.dataset.id + '&fullname=' + btn.dataset.fn, "POST", callback);
+    makeRequest('/remove?id=' + btn.dataset.id + '&fullname=' + btn.dataset.fn, 'POST', callback);
   }
 
   function buildBtnOc(btn) {
@@ -44,16 +44,16 @@
         bd.innerHTML = tempel.querySelector("#build-details").innerHTML;
 
         var b = document.getElementById("build");
-        console.log(tempel.querySelector("#build").innerHTML);
         b.innerHTML = tempel.querySelector("#build").innerHTML;
       }
       else {
         alert('Could not get info');
       }
+      console.log('removing');
       document.querySelector("#build code").style.visibility = "visible";
       document.querySelector("#filters #build-details").style.visibility = "visible";
       document.getElementById("build").classList.remove('loading');
-      document.getElementById("filters").classList.remove('loading');
+      document.getElementById("build-details-container").classList.remove('loading');
 
     }
 
